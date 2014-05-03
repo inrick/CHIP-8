@@ -17,6 +17,10 @@ int main(int argc, char **argv)
 {
   GLFWwindow *window;
 
+  if (argc != 2) {
+    fprintf(stderr, "Usage: %s <CHIP-8 ROM>\n", argv[0]);
+    exit(EXIT_FAILURE);
+  }
   if (!glfwInit()) {
     exit(EXIT_FAILURE);
   }
@@ -34,7 +38,7 @@ int main(int argc, char **argv)
   glDisable(GL_DEPTH_TEST);
 
   c8 = chip8_init();
-  if (!c8) {
+  if (!c8 || !chip8_load_rom(c8, argv[1])) {
     glfwTerminate();
     exit(EXIT_FAILURE);
   }

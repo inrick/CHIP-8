@@ -1,7 +1,10 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "chip8.h"
+
+#define MAX_ROM_SIZE (0xFFF - 0x200 + 1)
 
 static uint8_t chip8_fontset[80] =
 {
@@ -39,6 +42,34 @@ chip8 * chip8_init()
 void chip8_destroy(chip8 *c8)
 {
   free(c8);
+}
+
+bool chip8_load_rom(chip8 *c8, char *rom_path)
+{
+  uint8_t buffer[MAX_ROM_SIZE + 1];
+  size_t bytes_read;
+  FILE *rom;
+
+  rom = fopen(rom_path, "rb");
+  if (!rom) {
+    return false;
+  }
+
+  bytes_read = fread(buffer, sizeof(*buffer), sizeof(buffer), rom);
+  if (bytes_read == sizeof(buffer)) {
+    fprintf(stderr, "ROM file too big\n");
+    fclose(rom);
+    return false;
+  }
+  if (ferror(rom)) {
+    fprintf(stderr, "Error when reading ROM file");
+    fclose(rom);
+    return false;
+  }
+
+  memcpy(c8->memory + 0x200, buffer, bytes_read * sizeof(*buffer));
+  fclose(rom);
+  return true;
 }
 
 void chip8_emulate_cycle(chip8 *c8)
