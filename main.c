@@ -44,12 +44,13 @@ int main(int argc, char **argv)
   }
 
   while (!glfwWindowShouldClose(window)) {
-    glClear(GL_COLOR_BUFFER_BIT);
-
     chip8_emulate_cycle(c8);
-    render(c8);
+    if (c8->draw_flag) {
+      glClear(GL_COLOR_BUFFER_BIT);
+      render(c8);
+      glfwSwapBuffers(window);
+    }
 
-    glfwSwapBuffers(window);
     glfwPollEvents();
   }
 
