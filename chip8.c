@@ -80,6 +80,7 @@ void chip8_emulate_cycle(chip8 *c8)
 
   old_pc = c8->pc;
   c8->op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
+  c8->draw_flag = false;
 
   /* Opcode description taken from Wikipedia:
      http://en.wikipedia.org/wiki/CHIP-8#Opcode_table */
