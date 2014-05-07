@@ -13,7 +13,6 @@ typedef struct chip8 {
   uint8_t V[0x10];  /* Data registers */
   uint16_t I;       /* Index register */
   uint16_t pc;
-  opcode op;
   uint8_t delay_timer;
   uint8_t sound_timer;
   uint16_t stack[0x10];

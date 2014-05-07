@@ -76,18 +76,19 @@ bool chip8_load_rom(chip8 *c8, char *rom_path)
 
 void chip8_emulate_cycle(chip8 *c8)
 {
+  opcode op;
   uint16_t old_pc;
 
+  op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
   old_pc = c8->pc;
-  c8->op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
   c8->draw_flag = false;
 
   /* Opcode description taken from Wikipedia:
      http://en.wikipedia.org/wiki/CHIP-8#Opcode_table */
-  switch (c8->op & 0xF000) {
+  switch (op & 0xF000) {
   case 0x0000:
-    assert((c8->op & 0x0F00) == 0);
-    switch (c8->op & 0x00FF) {
+    assert((op & 0x0F00) == 0);
+    switch (op & 0x00FF) {
     case 0x00E0: /* 00E0 Clears the screen. */
       memset(c8->gfx, 0, sizeof(c8->gfx));
       c8->draw_flag = true;
@@ -96,55 +97,55 @@ void chip8_emulate_cycle(chip8 *c8)
       c8->pc = c8->stack[--c8->sp];
       break;
     default: /* 0NNN Calls RCA 1802 program at address NNN. */
-      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
+      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
     c8->pc += 2;
     break;
   case 0x1000: /* 1NNN Jumps to address NNN. */
-    c8->pc = c8->op & 0xFFF;
+    c8->pc = op & 0xFFF;
     break;
   case 0x2000: /* 2NNN Calls subroutine at NNN. */
     c8->stack[c8->sp++] = c8->pc;
-    c8->pc = c8->op & 0xFFF;
+    c8->pc = op & 0xFFF;
     break;
   case 0x3000: { /* 3XNN Skips the next instruction if VX equals NN. */
-    uint8_t X  = (c8->op & 0x0F00) >> 8;
-    uint8_t NN = c8->op & 0x00FF;
+    uint8_t X  = (op & 0x0F00) >> 8;
+    uint8_t NN = op & 0x00FF;
     c8->pc += (c8->V[X] == NN) ? 4 : 2;
     break;
   }
   case 0x4000: { /* 4XNN Skips the next instruction if VX doesn't equal NN. */
-    uint8_t X  = (c8->op & 0x0F00) >> 8;
-    uint8_t NN = c8->op & 0x00FF;
+    uint8_t X  = (op & 0x0F00) >> 8;
+    uint8_t NN = op & 0x00FF;
     c8->pc += (c8->V[X] != NN) ? 4 : 2;
     break;
   }
   case 0x5000: { /* 5XY0 Skips the next instruction if VX equals VY. */
-    assert((c8->op & 0xF) == 0);
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    uint8_t Y = (c8->op & 0x00F0) >> 4;
+    assert((op & 0xF) == 0);
+    uint8_t X = (op & 0x0F00) >> 8;
+    uint8_t Y = (op & 0x00F0) >> 4;
     c8->pc += (c8->V[X] == c8->V[Y]) ? 4 : 2;
     break;
   }
   case 0x6000: { /* 6XNN Sets VX to NN. */
-    uint8_t X  = (c8->op & 0x0F00) >> 8;
-    uint8_t NN = c8->op & 0x00FF;
+    uint8_t X  = (op & 0x0F00) >> 8;
+    uint8_t NN = op & 0x00FF;
     c8->V[X] = NN;
     c8->pc += 2;
     break;
   }
   case 0x7000: { /* 7XNN Adds NN to VX. */
-    uint8_t X  = (c8->op & 0x0F00) >> 8;
-    uint8_t NN = c8->op & 0x00FF;
+    uint8_t X  = (op & 0x0F00) >> 8;
+    uint8_t NN = op & 0x00FF;
     c8->V[X] += NN;
     c8->pc += 2;
     break;
   }
   case 0x8000: { /* 8XYN X and Y identify data registers, N the operation */
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    uint8_t Y = (c8->op & 0x00F0) >> 4;
-    switch (c8->op & 0x000F) {
+    uint8_t X = (op & 0x0F00) >> 8;
+    uint8_t Y = (op & 0x00F0) >> 4;
+    switch (op & 0x000F) {
     case 0x0000: /* 8XY0 Sets VX to the value of VY. */
       c8->V[X] = c8->V[Y];
       break;
@@ -183,29 +184,29 @@ void chip8_emulate_cycle(chip8 *c8)
       c8->V[X] <<= 1;
       break;
     default:
-      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
+      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
     c8->pc += 2;
     break;
   }
   case 0x9000: { /* 9XY0 Skips the next instruction if VX doesn't equal VY. */
-    assert((c8->op & 0xF) == 0);
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    uint8_t Y = (c8->op & 0x00F0) >> 4;
+    assert((op & 0xF) == 0);
+    uint8_t X = (op & 0x0F00) >> 8;
+    uint8_t Y = (op & 0x00F0) >> 4;
     c8->pc += (c8->V[X] != c8->V[Y]) ? 4 : 2;
     break;
   }
   case 0xA000: /* ANNN Sets I to the address NNN. */
-    c8->I = c8->op & 0xFFF;
+    c8->I = op & 0xFFF;
     c8->pc += 2;
     break;
   case 0xB000: /* BNNN Jumps to the address NNN plus V0. */
-    c8->pc = (c8->op & 0xFFF) + c8->V[0];
+    c8->pc = (op & 0xFFF) + c8->V[0];
     break;
   case 0xC000: { /* CXNN Sets VX to a random number and NN. */
-    uint8_t X  = (c8->op & 0x0F00) >> 8;
-    uint8_t NN = c8->op & 0x00FF;
+    uint8_t X  = (op & 0x0F00) >> 8;
+    uint8_t NN = op & 0x00FF;
     c8->V[X] = NN & rand(); /* TODO */
     c8->pc += 2;
     break;
@@ -218,9 +219,9 @@ void chip8_emulate_cycle(chip8 *c8)
        execution of this instruction. As described above, VF is set to 1 if any
        screen pixels are flipped from set to unset when the sprite is drawn,
        and to 0 if that doesn't happen. */
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    uint8_t Y = (c8->op & 0x00F0) >> 4;
-    uint8_t N = c8->op & 0x000F;
+    uint8_t X = (op & 0x0F00) >> 8;
+    uint8_t Y = (op & 0x00F0) >> 4;
+    uint8_t N = op & 0x000F;
     uint8_t x = c8->V[X];
     uint8_t y = c8->V[Y];
 
@@ -241,8 +242,8 @@ void chip8_emulate_cycle(chip8 *c8)
     break;
   }
   case 0xE000: {
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    switch (c8->op & 0x00FF) {
+    uint8_t X = (op & 0x0F00) >> 8;
+    switch (op & 0x00FF) {
     case 0x009E:
       /* EX9E Skips the next instruction if the key stored in VX is pressed. */
       c8->pc += (c8->key[c8->V[X]]) ? 4 : 2;
@@ -253,14 +254,14 @@ void chip8_emulate_cycle(chip8 *c8)
       c8->pc += (!c8->key[c8->V[X]]) ? 4 : 2;
       break;
     default:
-      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
+      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
     break;
   }
   case 0xF000: {
-    uint8_t X = (c8->op & 0x0F00) >> 8;
-    switch (c8->op & 0x00FF) {
+    uint8_t X = (op & 0x0F00) >> 8;
+    switch (op & 0x00FF) {
     case 0x0007: /* FX07 Sets VX to the value of the delay timer. */
       c8->V[X] = c8->delay_timer;
       break;
@@ -308,14 +309,14 @@ void chip8_emulate_cycle(chip8 *c8)
       memcpy(c8->V, c8->memory + c8->I, X+1);
       break;
     default:
-      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
+      fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
     c8->pc += 2;
     break;
   }
   default:
-    fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
+    fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
     assert(0);
   }
 
