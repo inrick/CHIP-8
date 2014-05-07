@@ -81,27 +81,65 @@ void chip8_emulate_cycle(chip8 *c8)
   old_pc = c8->pc;
   c8->op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
 
+  /* Opcode description taken from Wikipedia:
+     http://en.wikipedia.org/wiki/CHIP-8#Opcode_table */
   switch (c8->op & 0xF000) {
   case 0x0000:
+    assert((c8->op & 0x0F00) == 0);
     switch (c8->op & 0x00FF) {
     case 0x00E0: /* 00E0 Clears the screen. */
       memset(c8->gfx, 0, sizeof(c8->gfx));
       c8->draw_flag = true;
-      c8->pc += 2;
       break;
     case 0x00EE: /* 00EE Returns from a subroutine. */
       c8->pc = c8->stack[--c8->sp];
-      c8->pc += 2;
       break;
     default: /* 0NNN Calls RCA 1802 program at address NNN. */
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
       assert(0);
     }
+    c8->pc += 2;
+    break;
+  case 0x1000: /* 1NNN Jumps to address NNN. */
+    c8->pc = c8->op & 0xFFF;
     break;
   case 0x2000: /* 2NNN Calls subroutine at NNN. */
     c8->stack[c8->sp++] = c8->pc;
     c8->pc = c8->op & 0xFFF;
     break;
+  case 0x3000: { /* 3XNN Skips the next instruction if VX equals NN. */
+    uint8_t X  = (c8->op & 0x0F00) >> 8;
+    uint8_t NN = c8->op & 0x00FF;
+    c8->pc += (c8->V[X] == NN) ? 4 : 2;
+    break;
+  }
+  case 0x4000: { /* 4XNN Skips the next instruction if VX doesn't equal NN. */
+    uint8_t X  = (c8->op & 0x0F00) >> 8;
+    uint8_t NN = c8->op & 0x00FF;
+    c8->pc += (c8->V[X] != NN) ? 4 : 2;
+    break;
+  }
+  case 0x5000: { /* 5XY0 Skips the next instruction if VX equals VY. */
+    assert((c8->op & 0xF) == 0);
+    uint8_t X = (c8->op & 0x0F00) >> 8;
+    uint8_t Y = (c8->op & 0x00F0) >> 4;
+    c8->pc += (c8->V[X] == c8->V[Y]) ? 4 : 2;
+    break;
+  }
+  case 0x6000: { /* 6XNN Sets VX to NN. */
+    uint8_t X  = (c8->op & 0x0F00) >> 8;
+    uint8_t NN = c8->op & 0x00FF;
+    c8->V[X] = NN;
+    c8->pc += 2;
+    break;
+  }
+  case 0x7000: { /* 7XNN Adds NN to VX. */
+    uint8_t X  = (c8->op & 0x0F00) >> 8;
+    uint8_t NN = c8->op & 0x00FF;
+    c8->V[X] += NN;
+    c8->pc += 2;
+    break;
+  }
   case 0x8000: { /* 8XYN X and Y identify data registers, N the operation */
     uint8_t X = (c8->op & 0x0F00) >> 8;
     uint8_t Y = (c8->op & 0x00F0) >> 4;
@@ -123,6 +161,26 @@ void chip8_emulate_cycle(chip8 *c8)
       c8->V[0xF] = (c8->V[Y] > (0xFF - c8->V[X])) ? 1 : 0;
       c8->V[X] += c8->V[Y];
       break;
+    case 0x0005: /* 8XY5 VY is subtracted from VX. VF is set to 0 when there's
+                    a borrow, and 1 when there isn't. */
+      c8->V[0xF] = (c8->V[Y] > c8->V[X]) ? 0 : 1;
+      c8->V[X] -= c8->V[Y];
+      break;
+    case 0x0006: /* 8XY6 Shifts VX right by one. VF is set to the value of the
+                    least significant bit of VX before the shift. */
+      c8->V[0xF] = c8->V[X] & 0x1;
+      c8->V[X] >>= 1;
+      break;
+    case 0x0007: /* 8XY7 Sets VX to VY minus VX. VF is set to 0 when there's a
+                    borrow, and 1 when there isn't. */
+      c8->V[0xF] = (c8->V[X] > c8->V[Y]) ? 0 : 1;
+      c8->V[X] = c8->V[Y] - c8->V[X];
+      break;
+    case 0x000E: /* 8XYE Shifts VX left by one. VF is set to the value of the
+                    most significant bit of VX before the shift. */
+      c8->V[0xF] = (c8->V[X] & 0x80) >> 7;
+      c8->V[X] <<= 1;
+      break;
     default:
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
       assert(0);
@@ -130,10 +188,27 @@ void chip8_emulate_cycle(chip8 *c8)
     c8->pc += 2;
     break;
   }
+  case 0x9000: { /* 9XY0 Skips the next instruction if VX doesn't equal VY. */
+    assert((c8->op & 0xF) == 0);
+    uint8_t X = (c8->op & 0x0F00) >> 8;
+    uint8_t Y = (c8->op & 0x00F0) >> 4;
+    c8->pc += (c8->V[X] != c8->V[Y]) ? 4 : 2;
+    break;
+  }
   case 0xA000: /* ANNN Sets I to the address NNN. */
     c8->I = c8->op & 0xFFF;
     c8->pc += 2;
     break;
+  case 0xB000: /* BNNN Jumps to the address NNN plus V0. */
+    c8->pc = (c8->op & 0xFFF) + c8->V[0];
+    break;
+  case 0xC000: { /* CXNN Sets VX to a random number and NN. */
+    uint8_t X  = (c8->op & 0x0F00) >> 8;
+    uint8_t NN = c8->op & 0x00FF;
+    c8->V[X] = NN & rand(); /* TODO */
+    c8->pc += 2;
+    break;
+  }
   case 0xD000: {
     /* DXYN Draws a sprite at coordinate (VX, VY) that has a width of 8 pixels
        and a height of N pixels. Each row of 8 pixels is read as bit-coded
@@ -185,6 +260,34 @@ void chip8_emulate_cycle(chip8 *c8)
   case 0xF000: {
     uint8_t X = (c8->op & 0x0F00) >> 8;
     switch (c8->op & 0x00FF) {
+    case 0x0007: /* FX07 Sets VX to the value of the delay timer. */
+      c8->V[X] = c8->delay_timer;
+      break;
+    case 0x000A: /* FX0A A key press is awaited, and then stored in VX. */
+      /* TODO */
+      for (size_t i = 0; i < 0x10; ++i) {
+        if (c8->key[i]) {
+          c8->V[X] = i;
+          break;
+        }
+      }
+      break;
+    case 0x0015: /* FX15 Sets the delay timer to VX. */
+      c8->delay_timer = c8->V[X];
+      break;
+    case 0x0018: /* FX18 Sets the sound timer to VX. */
+      c8->sound_timer = c8->V[X];
+      break;
+    case 0x001E: /* FX1E Adds VX to I. */
+      c8->V[0xF] = (c8->I > (0xFFF - c8->V[X])) ? 1 : 0;
+      c8->I += c8->V[X];
+      break;
+    case 0x0029:
+      /* FX29 Sets I to the location of the sprite for the character in VX.
+         Characters 0-F (in hexadecimal) are represented by a 4x5 font. */
+      assert(c8->V[X] <= 0xF);
+      c8->I = c8->V[X] * 5;
+      break;
     case 0x0033:
       /* FX33 Stores the Binary-coded decimal representation of VX, with the
          most significant of three digits at the address in I, the middle digit
@@ -195,12 +298,19 @@ void chip8_emulate_cycle(chip8 *c8)
       c8->memory[c8->I]   = c8->V[X] / 100;
       c8->memory[c8->I+1] = (c8->V[X] / 10) % 100;
       c8->memory[c8->I+2] = (c8->V[X] % 100) % 10;
-      c8->pc += 2;
+      break;
+    case 0x0055: /* FX55 Stores V0 to VX in memory starting at address I. */
+      memcpy(c8->memory + c8->I, c8->V, X+1);
+      break;
+    case 0x0065:
+      /* FX65 Fills V0 to VX with values from memory starting at address I. */
+      memcpy(c8->V, c8->memory + c8->I, X+1);
       break;
     default:
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", c8->op);
       assert(0);
     }
+    c8->pc += 2;
     break;
   }
   default:
