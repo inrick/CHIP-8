@@ -333,18 +333,19 @@ static inline void opcode_0xD000(chip8 *c8, opcode op)
   uint8_t X = (op & 0x0F00) >> 8;
   uint8_t Y = (op & 0x00F0) >> 4;
   uint8_t N = op & 0x000F;
-  uint8_t x = c8->V[X];
-  uint8_t y = c8->V[Y];
 
   c8->V[0xF] = 0;
   for (uint8_t row = 0; row < N; ++row) {
     uint8_t sprite_row = c8->memory[c8->I+row];
     for (uint8_t col = 0; col < 8; ++col) {
       if ((sprite_row & (0x80 >> col)) != 0) {
-        if (c8->gfx[x+col][y+row] == 1) {
+        /* Wrap around if sprite is at the edge. */
+        uint8_t x = (c8->V[X] + col) % DISPLAY_WIDTH;
+        uint8_t y = (c8->V[Y] + row) % DISPLAY_HEIGHT;
+        if (c8->gfx[x][y] == 1) {
           c8->V[0xF] = 1;
         }
-        c8->gfx[x+col][y+row] ^= 1;
+        c8->gfx[x][y] ^= 1;
       }
     }
   }
