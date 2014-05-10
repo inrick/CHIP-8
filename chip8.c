@@ -74,6 +74,11 @@ bool chip8_load_rom(chip8 *c8, char *rom_path)
   return true;
 }
 
+static inline void chip8_inc_pc(chip8 *c8, bool skip_next_instruction)
+{
+  c8->pc += skip_next_instruction ? 4 : 2;
+}
+
 void chip8_emulate_cycle(chip8 *c8)
 {
   opcode op;
@@ -100,7 +105,7 @@ void chip8_emulate_cycle(chip8 *c8)
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   case 0x1000: /* 1NNN Jumps to address NNN. */
     c8->pc = op & 0xFFF;
@@ -112,34 +117,34 @@ void chip8_emulate_cycle(chip8 *c8)
   case 0x3000: { /* 3XNN Skips the next instruction if VX equals NN. */
     uint8_t X  = (op & 0x0F00) >> 8;
     uint8_t NN = op & 0x00FF;
-    c8->pc += (c8->V[X] == NN) ? 4 : 2;
+    chip8_inc_pc(c8, c8->V[X] == NN);
     break;
   }
   case 0x4000: { /* 4XNN Skips the next instruction if VX doesn't equal NN. */
     uint8_t X  = (op & 0x0F00) >> 8;
     uint8_t NN = op & 0x00FF;
-    c8->pc += (c8->V[X] != NN) ? 4 : 2;
+    chip8_inc_pc(c8, c8->V[X] != NN);
     break;
   }
   case 0x5000: { /* 5XY0 Skips the next instruction if VX equals VY. */
     assert((op & 0xF) == 0);
     uint8_t X = (op & 0x0F00) >> 8;
     uint8_t Y = (op & 0x00F0) >> 4;
-    c8->pc += (c8->V[X] == c8->V[Y]) ? 4 : 2;
+    chip8_inc_pc(c8, c8->V[X] == c8->V[Y]);
     break;
   }
   case 0x6000: { /* 6XNN Sets VX to NN. */
     uint8_t X  = (op & 0x0F00) >> 8;
     uint8_t NN = op & 0x00FF;
     c8->V[X] = NN;
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   case 0x7000: { /* 7XNN Adds NN to VX. */
     uint8_t X  = (op & 0x0F00) >> 8;
     uint8_t NN = op & 0x00FF;
     c8->V[X] += NN;
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   case 0x8000: { /* 8XYN X and Y identify data registers, N the operation */
@@ -187,19 +192,19 @@ void chip8_emulate_cycle(chip8 *c8)
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   case 0x9000: { /* 9XY0 Skips the next instruction if VX doesn't equal VY. */
     assert((op & 0xF) == 0);
     uint8_t X = (op & 0x0F00) >> 8;
     uint8_t Y = (op & 0x00F0) >> 4;
-    c8->pc += (c8->V[X] != c8->V[Y]) ? 4 : 2;
+    chip8_inc_pc(c8, c8->V[X] != c8->V[Y]);
     break;
   }
   case 0xA000: /* ANNN Sets I to the address NNN. */
     c8->I = op & 0xFFF;
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   case 0xB000: /* BNNN Jumps to the address NNN plus V0. */
     c8->pc = (op & 0xFFF) + c8->V[0];
@@ -208,7 +213,7 @@ void chip8_emulate_cycle(chip8 *c8)
     uint8_t X  = (op & 0x0F00) >> 8;
     uint8_t NN = op & 0x00FF;
     c8->V[X] = NN & rand(); /* TODO */
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   case 0xD000: {
@@ -238,7 +243,7 @@ void chip8_emulate_cycle(chip8 *c8)
       }
     }
     c8->draw_flag = true;
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   case 0xE000: {
@@ -246,12 +251,12 @@ void chip8_emulate_cycle(chip8 *c8)
     switch (op & 0x00FF) {
     case 0x009E:
       /* EX9E Skips the next instruction if the key stored in VX is pressed. */
-      c8->pc += (c8->key[c8->V[X]]) ? 4 : 2;
+      chip8_inc_pc(c8, c8->key[c8->V[X]]);
       break;
     case 0x00A1:
       /* EXA1 Skips the next instruction if the key stored in VX isn't pressed.
        */
-      c8->pc += (!c8->key[c8->V[X]]) ? 4 : 2;
+      chip8_inc_pc(c8, !c8->key[c8->V[X]]);
       break;
     default:
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
@@ -312,7 +317,7 @@ void chip8_emulate_cycle(chip8 *c8)
       fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
       assert(0);
     }
-    c8->pc += 2;
+    chip8_inc_pc(c8, false);
     break;
   }
   default:
