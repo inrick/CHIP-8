@@ -10,6 +10,17 @@ typedef uint16_t opcode;
 
 typedef void(*input_wait_fun)(void);
 
+enum draw_method {
+  POINT_DRAW,
+  POINT_CLEAR
+};
+
+struct point {
+  int x;
+  int y;
+  enum draw_method draw;
+};
+
 typedef struct chip8 {
   uint8_t memory[0x1000];
   uint8_t V[0x10];  /* Data registers */
@@ -20,7 +31,9 @@ typedef struct chip8 {
   uint16_t stack[0x10];
   uint16_t sp;
   uint8_t gfx[DISPLAY_WIDTH][DISPLAY_HEIGHT];
-  bool draw_flag;
+  struct point draw_queue[DISPLAY_WIDTH * DISPLAY_HEIGHT];
+  uint16_t draw_queue_pos;
+  uint8_t draw_flag;
   bool key[0x10];
 } chip8;
 
@@ -28,3 +41,5 @@ chip8 * chip8_init();
 void chip8_destroy(chip8 *);
 bool chip8_load_rom(chip8 *, char *);
 void chip8_emulate_cycle(chip8 *, input_wait_fun);
+uint16_t chip8_nof_elem_draw_queue(chip8 *);
+void chip8_reset_draw_queue(chip8 *);

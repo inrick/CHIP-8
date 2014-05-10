@@ -98,7 +98,7 @@ void chip8_emulate_cycle(chip8 *c8, void (*wait_for_input)(void))
 
   op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
   old_pc = c8->pc;
-  c8->draw_flag = false;
+  c8->draw_flag = 0;
 
   switch (op & 0xF000) {
   case 0x0000: opcode_0x0000(c8, op); break;
@@ -135,6 +135,16 @@ void chip8_emulate_cycle(chip8 *c8, void (*wait_for_input)(void))
   }
 }
 
+uint16_t chip8_nof_elem_draw_queue(chip8 *c8)
+{
+  return c8->draw_queue_pos;
+}
+
+void chip8_reset_draw_queue(chip8 *c8)
+{
+  c8->draw_queue_pos = 0;
+}
+
 static inline void chip8_inc_pc(chip8 *c8, bool skip_next_instruction)
 {
   c8->pc += skip_next_instruction ? 4 : 2;
@@ -150,7 +160,7 @@ static inline void opcode_0x0000(chip8 *c8, opcode op)
   case 0x00E0:
     /* 00E0 Clears the screen. */
     memset(c8->gfx, 0, sizeof(c8->gfx));
-    c8->draw_flag = true;
+    c8->draw_flag = 2;
     break;
   case 0x00EE:
     /* 00EE Returns from a subroutine. */
@@ -344,12 +354,17 @@ static inline void opcode_0xD000(chip8 *c8, opcode op)
         uint8_t y = (c8->V[Y] + row) % DISPLAY_HEIGHT;
         if (c8->gfx[x][y] == 1) {
           c8->V[0xF] = 1;
+          c8->draw_queue[c8->draw_queue_pos++] =
+            (struct point) {x, y, POINT_CLEAR};
+        } else {
+          c8->draw_queue[c8->draw_queue_pos++] =
+            (struct point) {x, y, POINT_DRAW};
         }
         c8->gfx[x][y] ^= 1;
       }
     }
   }
-  c8->draw_flag = true;
+  c8->draw_flag = 1;
   chip8_inc_pc(c8, false);
 }
 

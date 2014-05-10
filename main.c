@@ -46,7 +46,6 @@ int main(int argc, char **argv)
   while (!glfwWindowShouldClose(window)) {
     chip8_emulate_cycle(c8, glfwWaitEvents);
     if (c8->draw_flag) {
-      glClear(GL_COLOR_BUFFER_BIT);
       render(c8);
       glfwSwapBuffers(window);
     }
@@ -61,13 +60,22 @@ int main(int argc, char **argv)
 
 static void render(chip8 *c8)
 {
-  glColor3f(.85f, .85f, .85f);
-  for (int x = 0; x < DISPLAY_WIDTH; ++x) {
-    for (int y = 0; y < DISPLAY_HEIGHT; ++y) {
-      if (c8->gfx[x][y] == 1) {
-        draw_point(x, y);
+  uint16_t nof_draw_queue = chip8_nof_elem_draw_queue(c8);
+  switch (c8->draw_flag) {
+  case 1:
+    for (int i = 0; i < nof_draw_queue; ++i) {
+      struct point p = c8->draw_queue[i];
+      switch (p.draw) {
+      case POINT_DRAW: glColor3f(.85f, .85f, .85f); break;
+      case POINT_CLEAR: glColor3f(0.f, 0.f, 0.f); break;
       }
+      draw_point(p.x, p.y);
     }
+    chip8_reset_draw_queue(c8);
+    break;
+  case 2:
+    glClear(GL_COLOR_BUFFER_BIT);
+    break;
   }
 }
 
