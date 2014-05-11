@@ -425,8 +425,8 @@ static inline void opcode_0xF000(chip8 *c8, opcode op,
        in memory at location in I, the tens digit at location I+1, and the
        ones digit at location I+2.) */
     c8->memory[c8->I]   = c8->V[X] / 100;
-    c8->memory[c8->I+1] = (c8->V[X] / 10) % 100;
-    c8->memory[c8->I+2] = (c8->V[X] % 100) % 10;
+    c8->memory[c8->I+1] = (c8->V[X] % 100) / 10;
+    c8->memory[c8->I+2] = c8->V[X] % 10;
     break;
   case 0x0055:
     /* FX55 Stores V0 to VX in memory starting at address I. */
