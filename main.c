@@ -44,7 +44,7 @@ int main(int argc, char **argv)
   }
 
   while (!glfwWindowShouldClose(window)) {
-    chip8_emulate_cycle(c8);
+    chip8_emulate_cycle(c8, glfwWaitEvents);
     if (c8->draw_flag) {
       glClear(GL_COLOR_BUFFER_BIT);
       render(c8);

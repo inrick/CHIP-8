@@ -8,6 +8,8 @@
 
 typedef uint16_t opcode;
 
+typedef void(*input_wait_fun)(void);
+
 typedef struct chip8 {
   uint8_t memory[0x1000];
   uint8_t V[0x10];  /* Data registers */
@@ -25,4 +27,4 @@ typedef struct chip8 {
 chip8 * chip8_init();
 void chip8_destroy(chip8 *);
 bool chip8_load_rom(chip8 *, char *);
-void chip8_emulate_cycle(chip8 *);
+void chip8_emulate_cycle(chip8 *, input_wait_fun);

@@ -23,7 +23,7 @@ static inline void opcode_0xB000(chip8 *, opcode);
 static inline void opcode_0xC000(chip8 *, opcode);
 static inline void opcode_0xD000(chip8 *, opcode);
 static inline void opcode_0xE000(chip8 *, opcode);
-static inline void opcode_0xF000(chip8 *, opcode);
+static inline void opcode_0xF000(chip8 *, opcode, input_wait_fun);
 
 static uint8_t chip8_fontset[80] =
 {
@@ -91,7 +91,7 @@ bool chip8_load_rom(chip8 *c8, char *rom_path)
   return true;
 }
 
-void chip8_emulate_cycle(chip8 *c8)
+void chip8_emulate_cycle(chip8 *c8, void (*wait_for_input)(void))
 {
   opcode op;
   uint16_t old_pc;
@@ -116,7 +116,7 @@ void chip8_emulate_cycle(chip8 *c8)
   case 0xC000: opcode_0xC000(c8, op); break;
   case 0xD000: opcode_0xD000(c8, op); break;
   case 0xE000: opcode_0xE000(c8, op); break;
-  case 0xF000: opcode_0xF000(c8, op); break;
+  case 0xF000: opcode_0xF000(c8, op, wait_for_input); break;
   default:
     fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
     assert(0);
@@ -373,7 +373,8 @@ static inline void opcode_0xE000(chip8 *c8, opcode op)
   }
 }
 
-static inline void opcode_0xF000(chip8 *c8, opcode op)
+static inline void opcode_0xF000(chip8 *c8, opcode op,
+                                 void (*wait_for_input)(void))
 {
   assert((op & 0xF000) == 0xF000);
   uint8_t X = (op & 0x0F00) >> 8;
@@ -382,16 +383,21 @@ static inline void opcode_0xF000(chip8 *c8, opcode op)
     /* FX07 Sets VX to the value of the delay timer. */
     c8->V[X] = c8->delay_timer;
     break;
-  case 0x000A:
+  case 0x000A: {
     /* FX0A A key press is awaited, and then stored in VX. */
-    /* TODO */
-    for (size_t i = 0; i < 0x10; ++i) {
-      if (c8->key[i]) {
-        c8->V[X] = i;
-        break;
+    bool key_pressed = false;
+    while (!key_pressed) {
+      wait_for_input();
+      for (uint8_t i = 0; i < 0x10; ++i) {
+        if (c8->key[i]) {
+          c8->V[X] = i;
+          key_pressed = true;
+          break;
+        }
       }
     }
     break;
+  }
   case 0x0015:
     /* FX15 Sets the delay timer to VX. */
     c8->delay_timer = c8->V[X];
