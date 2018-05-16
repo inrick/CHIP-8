@@ -94,10 +94,8 @@ bool chip8_load_rom(chip8 *c8, char *rom_path)
 void chip8_emulate_cycle(chip8 *c8, input_wait_fun wait_for_input)
 {
   opcode op;
-  uint16_t old_pc;
 
   op = (c8->memory[c8->pc] << 8) | c8->memory[c8->pc+1];
-  old_pc = c8->pc;
   c8->draw_flag = false;
 
   switch (op & 0xF000) {
@@ -121,8 +119,6 @@ void chip8_emulate_cycle(chip8 *c8, input_wait_fun wait_for_input)
     fprintf(stderr, "Unknown opcode 0x%" PRIX16 "\n", op);
     assert(0);
   }
-
-  assert(c8->pc != old_pc);
 
   /* TODO timers should decrease at 60 hz */
   if (c8->delay_timer > 0) {
