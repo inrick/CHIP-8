@@ -24,7 +24,7 @@ typedef struct chip8 {
   bool key[0x10];
 } chip8;
 
-chip8 * chip8_init();
+chip8 *chip8_init(void);
 void chip8_destroy(chip8 *);
 bool chip8_load_rom(chip8 *, char *);
 void chip8_emulate_cycle(chip8 *, input_wait_fun);

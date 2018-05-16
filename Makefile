@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS := -g3 -Wall -Wpedantic -std=c99
-LDFLAGS := -lglfw -lGL
+LDFLAGS := -lglfw -lGL -lGLEW
 
 SRCS := main.c \
         chip8.c

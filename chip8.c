@@ -45,7 +45,7 @@ static uint8_t chip8_fontset[80] =
   0xF0, 0x80, 0xF0, 0x80, 0x80  /* F */
 };
 
-chip8 * chip8_init()
+chip8 *chip8_init(void)
 {
   chip8 *c8 = malloc(sizeof(*c8));
   if (!c8) {
@@ -91,7 +91,7 @@ bool chip8_load_rom(chip8 *c8, char *rom_path)
   return true;
 }
 
-void chip8_emulate_cycle(chip8 *c8, void (*wait_for_input)(void))
+void chip8_emulate_cycle(chip8 *c8, input_wait_fun wait_for_input)
 {
   opcode op;
   uint16_t old_pc;
@@ -124,12 +124,14 @@ void chip8_emulate_cycle(chip8 *c8, void (*wait_for_input)(void))
 
   assert(c8->pc != old_pc);
 
+  /* TODO timers should decrease at 60 hz */
   if (c8->delay_timer > 0) {
     --c8->delay_timer;
   }
   if (c8->sound_timer > 0) {
     if (c8->sound_timer == 1) {
-      printf("beep\n");
+      printf("\a");
+      fflush(stdout);
     }
     --c8->sound_timer;
   }
